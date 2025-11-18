@@ -27,11 +27,10 @@ jobs:
     - name: Create Terraform plugin cache folder
       run: mkdir -p ~/.terraform.d/plugin-cache
 
-    # Enable Terraform's built-in plugin caching
     - name: Set TF_PLUGIN_CACHE_DIR
       run: echo "TF_PLUGIN_CACHE_DIR=$HOME/.terraform.d/plugin-cache" >> $GITHUB_ENV
 
-    # -------- Google Cloud Authentication --------
+    # -------- Google Cloud Authentication (OIDC) --------
     - name: Authenticate to Google Cloud (OIDC)
       uses: google-github-actions/auth@v1
       with:
@@ -50,5 +49,11 @@ jobs:
       run: terraform validate
 
     - name: Terraform Plan
-      run: terraform plan -out=tfplan -input=false
+      run: terraform plan -out=tfplan -input=false \
+        -var="project_id=kxnwork" \
+        -var="deployer_service_account=terraform-deployer@kxnwork.iam.gserviceaccount.com"
+
+    - name: Terraform Apply
+      if: github.ref == 'refs/heads/main'
+      run: terraform apply -auto-approve tfplan
 
