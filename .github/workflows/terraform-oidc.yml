@@ -1,4 +1,4 @@
-name: Terraform CI/CD (GCP + Base64 SA Key)
+name: Terraform CI/CD (GCP Base64 Safe)
 
 on:
   push:
@@ -11,62 +11,60 @@ jobs:
 
     steps:
 
-    # ---------------------------------------------------------
-    # 1. Checkout code
-    # ---------------------------------------------------------
-    - name: Checkout repository
+    - name: Checkout Repo
       uses: actions/checkout@v3
 
-    # ---------------------------------------------------------
-    # 2. SAFE Base64 Decode to JSON File
-    # ---------------------------------------------------------
-    - name: Decode GCP Service Account Key
+    # -----------------------------------------
+    # 1) SAFE BASE64 DECODE → gcp-key.json
+    # -----------------------------------------
+    - name: Decode GCP Key
       run: |
         echo -n "${{ secrets.GCP_CREDENTIALS_BASE64 }}" | base64 --decode > gcp-key.json
-        echo "----- FIRST 5 LINES OF JSON -----"
+        echo "--- FIRST 5 LINES ---"
         head -5 gcp-key.json
 
-    # ---------------------------------------------------------
-    # 3. Validate JSON
-    # ---------------------------------------------------------
+    # -----------------------------------------
+    # 2) Validate JSON is valid
+    # -----------------------------------------
     - name: Validate JSON
       run: jq . gcp-key.json
 
-    # ---------------------------------------------------------
-    # 4. Authenticate with Google Cloud
-    # ---------------------------------------------------------
+    # -----------------------------------------
+    # 3) Authenticate using JSON SA key
+    # -----------------------------------------
     - name: Authenticate to GCP
       id: auth
       uses: google-github-actions/auth@v1
       with:
-        credentials_json: gcp-key.json
+        credentials_json: ${{ secrets.GCP_CREDENTIALS_BASE64 }}
+        token_format: access_token
         create_credentials_file: true
-        export_environment_variables: true
+        cleanup_credentials: false
 
-    # ---------------------------------------------------------
-    # 5. Install Terraform
-    # ---------------------------------------------------------
+    # -----------------------------------------
+    # 4) Install Terraform
+    # -----------------------------------------
     - name: Install Terraform
       uses: hashicorp/setup-terraform@v3
 
-    # ---------------------------------------------------------
-    # 6. Terraform Init
-    # ---------------------------------------------------------
+    # -----------------------------------------
+    # 5) Terraform Init
+    # -----------------------------------------
     - name: Terraform Init
       run: terraform init
 
-    # ---------------------------------------------------------
-    # 7. Terraform Plan
-    # ---------------------------------------------------------
+    # -----------------------------------------
+    # 6) Correct Terraform Plan Step
+    # -----------------------------------------
     - name: Terraform Plan
       run: |
         terraform plan \
           -var="project_id=kxnwork" \
           -var="deployer_service_account=terraform-deployer-sa@kxnwork.iam.gserviceaccount.com"
 
-    # ---------------------------------------------------------
-    # 8. Terraform Apply (only on main)
-    # ---------------------------------------------------------
+    # -----------------------------------------
+    # 7) Correct Terraform Apply Step
+    # -----------------------------------------
     - name: Terraform Apply
       if: github.ref == 'refs/heads/main'
       run: |
