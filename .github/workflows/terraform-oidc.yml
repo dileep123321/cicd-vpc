@@ -16,26 +16,30 @@ jobs:
     - name: Checkout Code
       uses: actions/checkout@v3
 
-    # --- Terraform Plugin Cache (SUPER IMPORTANT) ----
+    # -------- Terraform Plugin Cache --------
     - name: Cache Terraform plugins
       uses: actions/cache@v3
       with:
-        path: |
-          ~/.terraform.d/plugin-cache
+        path: ~/.terraform.d/plugin-cache
         key: terraform-${{ runner.os }}-${{ hashFiles('**/*.tf') }}
         restore-keys: terraform-${{ runner.os }}-
 
+    # -------- FIX: Create plugin directory --------
+    - name: Create Terraform plugin cache directory
+      run: mkdir -p ~/.terraform.d/plugin-cache
+
+    # -------- Google Cloud Authentication --------
     - name: Authenticate to Google Cloud (OIDC)
       uses: google-github-actions/auth@v1
       with:
         workload_identity_provider: "projects/382207431122/locations/global/workloadIdentityPools/github-pool-2/providers/github-provider"
         service_account: "terraform-deployer@kxnwork.iam.gserviceaccount.com"
 
+    # -------- Setup Terraform --------
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v2
-      with:
-        terraform_version: latest
 
+    # -------- Terraform Init (use plugin cache) --------
     - name: Terraform Init
       run: terraform init -plugin-dir ~/.terraform.d/plugin-cache
 
