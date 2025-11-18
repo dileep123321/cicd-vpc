@@ -58,9 +58,7 @@ jobs:
     # -----------------------------------------
     - name: Terraform Plan
       run: |
-        terraform plan \
-          -var="project_id=kxnwork" \
-          -var="deployer_service_account=terraform-deployer-sa@kxnwork.iam.gserviceaccount.com"
+        terraform plan -var="project_id=kxnwork"
 
     # -----------------------------------------
     # 7) Correct Terraform Apply Step
@@ -68,7 +66,4 @@ jobs:
     - name: Terraform Apply
       if: github.ref == 'refs/heads/main'
       run: |
-        terraform apply -auto-approve \
-          -var="project_id=kxnwork" \
-          -var="deployer_service_account=terraform-deployer-sa@kxnwork.iam.gserviceaccount.com"
-
+        terraform apply -auto-approve -var="project_id=kxnwork"
