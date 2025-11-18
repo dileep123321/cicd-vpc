@@ -1,93 +1,72 @@
-name: Terraform CI/CD (GCP Private VPC + NAT + VM)
+name: Terraform CI/CD (GCP SA Key Base64 Safe Decode)
 
 on:
   push:
-    branches:
-      - main
-  workflow_dispatch:
-
-env:
-  TF_PLUGIN_CACHE_DIR: /home/runner/.terraform.d/plugin-cache
+    branches: [ "main" ]
+  pull_request:
 
 jobs:
   terraform:
     runs-on: ubuntu-latest
 
     steps:
-      # ----------------------------
-      # Checkout repository
-      # ----------------------------
-      - name: Checkout Repo
-        uses: actions/checkout@v3
+    # ---------------------------------------------------
+    # 1. Checkout code
+    # ---------------------------------------------------
+    - name: Checkout repository
+      uses: actions/checkout@v3
 
-      # ----------------------------
-      # Setup Terraform
-      # ----------------------------
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v2
-        with:
-          terraform_version: 1.6.6
+    # ---------------------------------------------------
+    # 2. Decode Base64 SA Key (SAFE decode)
+    # ---------------------------------------------------
+    - name: Decode GCP Service Account Key
+      run: |
+        echo -n "${{ secrets.GCP_CREDENTIALS_BASE64 }}" | base64 --decode > gcp-key.json
+        echo "----- FIRST 5 LINES -----"
+        head -5 gcp-key.json
 
-      # ----------------------------
-      # Create plugin cache directory
-      # ----------------------------
-      - name: Setup Plugin Cache Directory
-        run: mkdir -p $TF_PLUGIN_CACHE_DIR
+    # ---------------------------------------------------
+    # 3. Validate JSON file using jq
+    # ---------------------------------------------------
+    - name: Validate JSON
+      run: jq . gcp-key.json
 
-      # ----------------------------
-      # Decode Base64 GCP key
-      # FIX FOR "unexpected token '�'"
-      # ----------------------------
-      - name: Decode GCP Service Account Key
-        run: |
-          echo -n "${{ secrets.GCP_CREDENTIALS_BASE64 }}" | base64 --decode > gcp-key.json
-          echo "----- FIRST LINES OF DECODED JSON -----"
-          head -5 gcp-key.json
+    # ---------------------------------------------------
+    # 4. Authenticate to Google Cloud using JSON Key
+    # ---------------------------------------------------
+    - name: Authenticate to GCP
+      uses: google-github-actions/auth@v1
+      with:
+        credentials_json: gcp-key.json
+        export_environment_variables: true
+        create_credentials_file: true
 
-      # ----------------------------
-      # Validate JSON
-      # If JSON is corrupted, this fails early
-      # ----------------------------
-      - name: Validate JSON
-        run: |
-          cat gcp-key.json | jq .
+    # ---------------------------------------------------
+    # 5. Install Terraform
+    # ---------------------------------------------------
+    - name: Install Terraform
+      uses: hashicorp/setup-terraform@v3
 
-      # ----------------------------
-      # Authenticate to Google Cloud
-      # ----------------------------
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v1
-        with:
-          credentials_json: gcp-key.json
+    # ---------------------------------------------------
+    # 6. Terraform Init
+    # ---------------------------------------------------
+    - name: Terraform Init
+      run: terraform init
 
-      # ----------------------------
-      # Initialize Terraform
-      # ----------------------------
-      - name: Terraform Init
-        run: |
-          terraform init \
-            -plugin-dir=$TF_PLUGIN_CACHE_DIR
+    # ---------------------------------------------------
+    # 7. Terraform Plan
+    # ---------------------------------------------------
+    - name: Terraform Plan
+      run: terraform plan \
+        -var="project_id=kxnwork" \
+        -var="deployer_service_account=terraform-deployer-sa@kxnwork.iam.gserviceaccount.com"
 
-      # ----------------------------
-      # Terraform Validate
-      # ----------------------------
-      - name: Terraform Validate
-        run: terraform validate
-
-      # ----------------------------
-      # Terraform Plan
-      # ----------------------------
-      - name: Terraform Plan
-        run: |
-          terraform plan \
-            -var="project_id=kxnwork" \
-            -var="deployer_service_account=terraform-deployer-sa@kxnwork.iam.gserviceaccount.com" \
-            -out=tfplan
-
-      # ----------------------------
-      # Terraform Apply
-      # ----------------------------
-      - name: Terraform Apply
-        if: github.ref == 'refs/heads/main'
-        run: terraform apply -auto-approve tfplan
+    # ---------------------------------------------------
+    # 8. Terraform Apply (only on main)
+    # ---------------------------------------------------
+    - name: Terraform Apply
+      if: github.ref == 'refs/heads/main'
+      run: terraform apply -auto-approve \
+        -var="project_id=kxnwork" \
+        -var="deployer_service_account=terraform-deployer-sa@kxnwork.iam.gserviceaccount.com"
 
