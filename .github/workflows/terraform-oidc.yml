@@ -10,46 +10,61 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    # -----------------------------
+    # Checkout repository
+    # -----------------------------
     - name: Checkout Repo
       uses: actions/checkout@v3
 
-    # 1) Decode Base64 into service-account.json
-    - name: Decode GCP Key
+    # ---------------------------------------------------
+    # 1) Decode Base64 into service account JSON file
+    # ---------------------------------------------------
+    - name: Decode GCP Service Account Key
       run: |
-        echo -n "${{ secrets.GCP_CREDENTIALS_BASE64 }}" | base64 --decode > gcp-key.json
-        echo "--- FIRST 5 LINES OF JSON ---"
+        echo "${{ secrets.GCP_CREDENTIALS_BASE64 }}" | base64 --decode > gcp-key.json
+        echo "--- JSON PREVIEW (first 5 lines) ---"
         head -5 gcp-key.json
 
-    # 2) Validate JSON
-    - name: Validate JSON
+    # ---------------------------------------------------
+    # 2) Validate JSON to ensure it's NOT corrupted
+    # ---------------------------------------------------
+    - name: Validate JSON File
       run: jq . gcp-key.json
 
-    # 3) Authenticate using JSON key
+    # ---------------------------------------------------
+    # 3) Authenticate to GCP using the JSON key file
+    # ---------------------------------------------------
     - name: Authenticate to GCP
-      id: auth
       uses: google-github-actions/auth@v1
       with:
         credentials_json: gcp-key.json
-        token_format: "json"           # <-- CRITICAL FIX
+        token_format: "access_token"
         create_credentials_file: true
-        cleanup_credentials: false
 
+    # ---------------------------------------------------
     # 4) Install Terraform
+    # ---------------------------------------------------
     - name: Install Terraform
       uses: hashicorp/setup-terraform@v3
 
+    # ---------------------------------------------------
     # 5) Terraform Init
+    # ---------------------------------------------------
     - name: Terraform Init
       run: terraform init
 
+    # ---------------------------------------------------
     # 6) Terraform Plan
+    # ---------------------------------------------------
     - name: Terraform Plan
       run: |
         terraform plan \
           -var="project_id=kxnwork" \
           -var="deployer_service_account=terraform-deployer-sa@kxnwork.iam.gserviceaccount.com"
 
-    # 7) Terraform Apply (only on main)
+    # ---------------------------------------------------
+    # 7) Terraform Apply (Main branch only)
+    # ---------------------------------------------------
     - name: Terraform Apply
       if: github.ref == 'refs/heads/main'
       run: |
