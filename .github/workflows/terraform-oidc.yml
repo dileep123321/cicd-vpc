@@ -1,4 +1,4 @@
-name: Terraform CI/CD (GCP Base64 Safe)
+name: Terraform CI/CD (GCP + Base64 SA Key)
 
 on:
   push:
@@ -11,62 +11,66 @@ jobs:
 
     steps:
 
-    - name: Checkout Repo
+    # ---------------------------------------------------------
+    # 1. Checkout code
+    # ---------------------------------------------------------
+    - name: Checkout repository
       uses: actions/checkout@v3
 
-    # -----------------------------------------
-    # 1) SAFE BASE64 DECODE (your Base64 is OK)
-    # -----------------------------------------
-    - name: Decode GCP Key
+    # ---------------------------------------------------------
+    # 2. SAFE Base64 Decode to JSON File
+    # ---------------------------------------------------------
+    - name: Decode GCP Service Account Key
       run: |
         echo -n "${{ secrets.GCP_CREDENTIALS_BASE64 }}" | base64 --decode > gcp-key.json
-        echo "--- FIRST 5 LINES ---"
+        echo "----- FIRST 5 LINES OF JSON -----"
         head -5 gcp-key.json
 
-    # -----------------------------------------
-    # 2) VALIDATE JSON (must succeed)
-    # -----------------------------------------
+    # ---------------------------------------------------------
+    # 3. Validate JSON
+    # ---------------------------------------------------------
     - name: Validate JSON
       run: jq . gcp-key.json
 
-    # -----------------------------------------
-    # 3) AUTHENTICATE USING JSON FILE
-    # -----------------------------------------
+    # ---------------------------------------------------------
+    # 4. Authenticate with Google Cloud
+    # ---------------------------------------------------------
     - name: Authenticate to GCP
       id: auth
       uses: google-github-actions/auth@v1
       with:
-        credentials_json: ${{ secrets.GCP_CREDENTIALS_BASE64 }}
-        token_format: access_token
+        credentials_json: gcp-key.json
         create_credentials_file: true
-        cleanup_credentials: false
+        export_environment_variables: true
 
-    # -----------------------------------------
-    # 4) Install Terraform
-    # -----------------------------------------
+    # ---------------------------------------------------------
+    # 5. Install Terraform
+    # ---------------------------------------------------------
     - name: Install Terraform
       uses: hashicorp/setup-terraform@v3
 
-    # -----------------------------------------
-    # 5) Terraform Init
-    # -----------------------------------------
+    # ---------------------------------------------------------
+    # 6. Terraform Init
+    # ---------------------------------------------------------
     - name: Terraform Init
       run: terraform init
 
-    # -----------------------------------------
-    # 6) Terraform Plan
-    # -----------------------------------------
+    # ---------------------------------------------------------
+    # 7. Terraform Plan
+    # ---------------------------------------------------------
     - name: Terraform Plan
-      run: terraform plan \
-        -var="project_id=kxnwork" \
-        -var="deployer_service_account=terraform-deployer-sa@kxnwork.iam.gserviceaccount.com"
+      run: |
+        terraform plan \
+          -var="project_id=kxnwork" \
+          -var="deployer_service_account=terraform-deployer-sa@kxnwork.iam.gserviceaccount.com"
 
-    # -----------------------------------------
-    # 7) Terraform Apply
-    # -----------------------------------------
+    # ---------------------------------------------------------
+    # 8. Terraform Apply (only on main)
+    # ---------------------------------------------------------
     - name: Terraform Apply
       if: github.ref == 'refs/heads/main'
-      run: terraform apply -auto-approve \
-        -var="project_id=kxnwork" \
-        -var="deployer_service_account=terraform-deployer-sa@kxnwork.iam.gserviceaccount.com"
+      run: |
+        terraform apply -auto-approve \
+          -var="project_id=kxnwork" \
+          -var="deployer_service_account=terraform-deployer-sa@kxnwork.iam.gserviceaccount.com"
 
