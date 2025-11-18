@@ -10,6 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+
     # -----------------------------
     # Checkout repository
     # -----------------------------
@@ -17,22 +18,22 @@ jobs:
       uses: actions/checkout@v3
 
     # ---------------------------------------------------
-    # 1) Decode Base64 into service account JSON file
+    # 1) Decode Base64 → Create gcp-key.json
     # ---------------------------------------------------
     - name: Decode GCP Service Account Key
       run: |
-        echo "${{ secrets.GCP_CREDENTIALS_BASE64 }}" | base64 --decode > gcp-key.json
+        echo -n "${{ secrets.GCP_CREDENTIALS_BASE64 }}" | base64 --decode > gcp-key.json
         echo "--- JSON PREVIEW (first 5 lines) ---"
         head -5 gcp-key.json
 
     # ---------------------------------------------------
-    # 2) Validate JSON to ensure it's NOT corrupted
+    # 2) Validate JSON format (must pass)
     # ---------------------------------------------------
     - name: Validate JSON File
       run: jq . gcp-key.json
 
     # ---------------------------------------------------
-    # 3) Authenticate to GCP using the JSON key file
+    # 3) Authenticate using JSON key file
     # ---------------------------------------------------
     - name: Authenticate to GCP
       uses: google-github-actions/auth@v1
@@ -40,6 +41,7 @@ jobs:
         credentials_json: gcp-key.json
         token_format: "access_token"
         create_credentials_file: true
+        export_environment_variables: true
 
     # ---------------------------------------------------
     # 4) Install Terraform
@@ -63,7 +65,7 @@ jobs:
           -var="deployer_service_account=terraform-deployer-sa@kxnwork.iam.gserviceaccount.com"
 
     # ---------------------------------------------------
-    # 7) Terraform Apply (Main branch only)
+    # 7) Terraform Apply (main branch only)
     # ---------------------------------------------------
     - name: Terraform Apply
       if: github.ref == 'refs/heads/main'
