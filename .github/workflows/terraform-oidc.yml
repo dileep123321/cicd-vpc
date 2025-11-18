@@ -1,0 +1,39 @@
+name: Terraform Deploy via OIDC
+
+on:
+  push:
+    branches: ["main"]
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v3
+
+    - name: Authenticate to Google Cloud (OIDC)
+      uses: google-github-actions/auth@v1
+      with:
+        workload_identity_provider: "projects/382207431122/locations/global/workloadIdentityPools/github-pool-2/providers/github-provider"
+        service_account: "terraform-deployer@kxnwork.iam.gserviceaccount.com"
+
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v2
+
+    - name: Terraform Init
+      run: terraform init
+
+    - name: Terraform Validate
+      run: terraform validate
+
+    - name: Terraform Plan
+      run: terraform plan -out=tfplan
+
+    - name: Terraform Apply
+      run: terraform apply -auto-approve
+
