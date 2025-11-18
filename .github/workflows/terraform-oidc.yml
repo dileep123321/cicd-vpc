@@ -1,82 +1,68 @@
-name: Terraform Deploy via OIDC
+name: Terraform Deploy Using Base64 SA Key
 
 on:
   push:
     branches: ["main"]
-
-permissions:
-  contents: read
-  id-token: write
 
 jobs:
   terraform:
     runs-on: ubuntu-latest
 
     steps:
-    # ---------------------------------------
-    # Checkout
-    # ---------------------------------------
+    # ----------------------------------------------------
+    # Checkout repository
+    # ----------------------------------------------------
     - name: Checkout Code
       uses: actions/checkout@v3
 
-    # ---------------------------------------
-    # Cache Terraform Plugins
-    # ---------------------------------------
-    - name: Cache Terraform plugins
-      uses: actions/cache@v3
-      with:
-        path: ~/.terraform.d/plugin-cache
-        key: terraform-${{ runner.os }}-${{ hashFiles('**/*.tf') }}
-        restore-keys: terraform-${{ runner.os }}-
-
-    - name: Create Terraform plugin cache directory
-      run: mkdir -p ~/.terraform.d/plugin-cache
-
-    - name: Enable Terraform plugin cache
-      run: echo "TF_PLUGIN_CACHE_DIR=$HOME/.terraform.d/plugin-cache" >> $GITHUB_ENV
-
-    # ---------------------------------------
-    # Authenticate to Google Cloud using OIDC
-    # ---------------------------------------
-    - name: Authenticate to Google Cloud (OIDC)
-      uses: google-github-actions/auth@v1
-      with:
-        workload_identity_provider: "projects/382207431122/locations/global/workloadIdentityPools/oidc-pool-priii-001/providers/github-provider-priii-001"
-
-        service_account: "terraform-deployer@kxnwork.iam.gserviceaccount.com"
-
-    # ---------------------------------------
-    # Install Terraform
-    # ---------------------------------------
+    # ----------------------------------------------------
+    # Setup Terraform
+    # ----------------------------------------------------
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v2
 
-    # ---------------------------------------
+    # ----------------------------------------------------
+    # Decode Base64 Service Account Key
+    # ----------------------------------------------------
+    - name: Decode GCP Credentials
+      run: |
+        echo "${{ secrets.GCP_CREDENTIALS_BASE64 }}" | base64 --decode > gcp-key.json
+        echo "Key decoded successfully."
+
+    # ----------------------------------------------------
+    # Authenticate to Google Cloud
+    # ----------------------------------------------------
+    - name: Authenticate to Google Cloud
+      uses: google-github-actions/auth@v1
+      with:
+        credentials_json: gcp-key.json
+
+    # ----------------------------------------------------
     # Terraform Init
-    # ---------------------------------------
+    # ----------------------------------------------------
     - name: Terraform Init
       run: terraform init
 
-    # ---------------------------------------
+    # ----------------------------------------------------
     # Terraform Validate
-    # ---------------------------------------
+    # ----------------------------------------------------
     - name: Terraform Validate
       run: terraform validate
 
-    # ---------------------------------------
-    # Terraform Plan (MULTILINE FIXED)
-    # ---------------------------------------
+    # ----------------------------------------------------
+    # Terraform Plan
+    # ----------------------------------------------------
     - name: Terraform Plan
       run: |
         terraform plan \
           -out=tfplan \
           -input=false \
           -var="project_id=kxnwork" \
-          -var="deployer_service_account=terraform-deployer@kxnwork.iam.gserviceaccount.com"
+          -var="deployer_service_account=terraform-deployer-sa@kxnwork.iam.gserviceaccount.com"
 
-    # ---------------------------------------
-    # Terraform Apply
-    # ---------------------------------------
+    # ----------------------------------------------------
+    # Terraform Apply (only on main)
+    # ----------------------------------------------------
     - name: Terraform Apply
       if: github.ref == 'refs/heads/main'
       run: terraform apply -auto-approve tfplan
