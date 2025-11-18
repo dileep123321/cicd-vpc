@@ -13,10 +13,15 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    # ---------------------------------------
+    # Checkout
+    # ---------------------------------------
     - name: Checkout Code
       uses: actions/checkout@v3
 
-    # -------- Terraform Plugin Cache --------
+    # ---------------------------------------
+    # Cache Terraform Plugins
+    # ---------------------------------------
     - name: Cache Terraform plugins
       uses: actions/cache@v3
       with:
@@ -24,35 +29,53 @@ jobs:
         key: terraform-${{ runner.os }}-${{ hashFiles('**/*.tf') }}
         restore-keys: terraform-${{ runner.os }}-
 
-    - name: Create Terraform plugin cache folder
+    - name: Create Terraform plugin cache directory
       run: mkdir -p ~/.terraform.d/plugin-cache
 
-    - name: Set TF_PLUGIN_CACHE_DIR
+    - name: Enable Terraform plugin cache
       run: echo "TF_PLUGIN_CACHE_DIR=$HOME/.terraform.d/plugin-cache" >> $GITHUB_ENV
 
-    # -------- Google Cloud Authentication (OIDC) --------
+    # ---------------------------------------
+    # Authenticate to Google Cloud using OIDC
+    # ---------------------------------------
     - name: Authenticate to Google Cloud (OIDC)
       uses: google-github-actions/auth@v1
       with:
         workload_identity_provider: "projects/382207431122/locations/global/workloadIdentityPools/github-pool-2/providers/github-provider"
         service_account: "terraform-deployer@kxnwork.iam.gserviceaccount.com"
 
-    # -------- Setup Terraform --------
+    # ---------------------------------------
+    # Install Terraform
+    # ---------------------------------------
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v2
 
-    # -------- Terraform Init --------
+    # ---------------------------------------
+    # Terraform Init
+    # ---------------------------------------
     - name: Terraform Init
       run: terraform init
 
+    # ---------------------------------------
+    # Terraform Validate
+    # ---------------------------------------
     - name: Terraform Validate
       run: terraform validate
 
+    # ---------------------------------------
+    # Terraform Plan (MULTILINE FIXED)
+    # ---------------------------------------
     - name: Terraform Plan
-      run: terraform plan -out=tfplan -input=false \
-        -var="project_id=kxnwork" \
-        -var="deployer_service_account=terraform-deployer@kxnwork.iam.gserviceaccount.com"
+      run: |
+        terraform plan \
+          -out=tfplan \
+          -input=false \
+          -var="project_id=kxnwork" \
+          -var="deployer_service_account=terraform-deployer@kxnwork.iam.gserviceaccount.com"
 
+    # ---------------------------------------
+    # Terraform Apply
+    # ---------------------------------------
     - name: Terraform Apply
       if: github.ref == 'refs/heads/main'
       run: terraform apply -auto-approve tfplan
