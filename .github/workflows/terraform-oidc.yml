@@ -16,6 +16,15 @@ jobs:
     - name: Checkout Code
       uses: actions/checkout@v3
 
+    # --- Terraform Plugin Cache (SUPER IMPORTANT) ----
+    - name: Cache Terraform plugins
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.terraform.d/plugin-cache
+        key: terraform-${{ runner.os }}-${{ hashFiles('**/*.tf') }}
+        restore-keys: terraform-${{ runner.os }}-
+
     - name: Authenticate to Google Cloud (OIDC)
       uses: google-github-actions/auth@v1
       with:
@@ -24,16 +33,15 @@ jobs:
 
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v2
+      with:
+        terraform_version: latest
 
     - name: Terraform Init
-      run: terraform init
+      run: terraform init -plugin-dir ~/.terraform.d/plugin-cache
 
     - name: Terraform Validate
       run: terraform validate
 
     - name: Terraform Plan
-      run: terraform plan -out=tfplan
-
-    - name: Terraform Apply
-      run: terraform apply -auto-approve
+      run: terraform plan -out=tfplan -input=false
 
