@@ -24,9 +24,12 @@ jobs:
         key: terraform-${{ runner.os }}-${{ hashFiles('**/*.tf') }}
         restore-keys: terraform-${{ runner.os }}-
 
-    # -------- FIX: Create plugin directory --------
-    - name: Create Terraform plugin cache directory
+    - name: Create Terraform plugin cache folder
       run: mkdir -p ~/.terraform.d/plugin-cache
+
+    # Enable Terraform's built-in plugin caching
+    - name: Set TF_PLUGIN_CACHE_DIR
+      run: echo "TF_PLUGIN_CACHE_DIR=$HOME/.terraform.d/plugin-cache" >> $GITHUB_ENV
 
     # -------- Google Cloud Authentication --------
     - name: Authenticate to Google Cloud (OIDC)
@@ -39,9 +42,9 @@ jobs:
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v2
 
-    # -------- Terraform Init (use plugin cache) --------
+    # -------- Terraform Init --------
     - name: Terraform Init
-      run: terraform init -plugin-dir ~/.terraform.d/plugin-cache
+      run: terraform init
 
     - name: Terraform Validate
       run: terraform validate
