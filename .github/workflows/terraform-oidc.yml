@@ -41,7 +41,8 @@ jobs:
     - name: Authenticate to Google Cloud (OIDC)
       uses: google-github-actions/auth@v1
       with:
-        workload_identity_provider: "projects/382207431122/locations/global/workloadIdentityPools/github-pool-2/providers/github-provider"
+        workload_identity_provider: "projects/382207431122/locations/global/workloadIdentityPools/oidc-pool-priii-001/providers/github-provider-priii-001"
+
         service_account: "terraform-deployer@kxnwork.iam.gserviceaccount.com"
 
     # ---------------------------------------
