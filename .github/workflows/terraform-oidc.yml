@@ -10,11 +10,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-
     - name: Checkout Repo
       uses: actions/checkout@v3
 
-    # 1) Decode Base64
+    # 1) Decode Base64 into JSON file
     - name: Decode GCP Key
       run: |
         echo -n "${{ secrets.GCP_CREDENTIALS_BASE64 }}" | base64 --decode > gcp-key.json
@@ -50,7 +49,7 @@ jobs:
 
     # 7) Terraform Apply
     - name: Terraform Apply
-    if: github.ref == 'refs/heads/main'
+      if: github.ref == 'refs/heads/main'
       run: |
         terraform apply -auto-approve \
           -var="project_id=kxnwork" \
