@@ -14,56 +14,45 @@ jobs:
     - name: Checkout Repo
       uses: actions/checkout@v3
 
-    # -----------------------------------------
-    # 1) SAFE BASE64 DECODE → gcp-key.json
-    # -----------------------------------------
+    # 1) Decode Base64
     - name: Decode GCP Key
       run: |
         echo -n "${{ secrets.GCP_CREDENTIALS_BASE64 }}" | base64 --decode > gcp-key.json
-        echo "--- FIRST 5 LINES ---"
         head -5 gcp-key.json
 
-    # -----------------------------------------
-    # 2) Validate JSON is valid
-    # -----------------------------------------
+    # 2) Validate JSON
     - name: Validate JSON
       run: jq . gcp-key.json
 
-    # -----------------------------------------
-    # 3) Authenticate using JSON SA key
-    # -----------------------------------------
+    # 3) Authenticate
     - name: Authenticate to GCP
       id: auth
       uses: google-github-actions/auth@v1
       with:
-        credentials_json: ${{ secrets.GCP_CREDENTIALS_BASE64 }}
+        credentials_json: gcp-key.json
         token_format: access_token
         create_credentials_file: true
-        cleanup_credentials: false
 
-    # -----------------------------------------
     # 4) Install Terraform
-    # -----------------------------------------
     - name: Install Terraform
       uses: hashicorp/setup-terraform@v3
 
-    # -----------------------------------------
     # 5) Terraform Init
-    # -----------------------------------------
     - name: Terraform Init
       run: terraform init
 
-    # -----------------------------------------
-    # 6) Correct Terraform Plan Step
-    # -----------------------------------------
+    # 6) Terraform Plan
     - name: Terraform Plan
       run: |
-        terraform plan -var="project_id=kxnwork"
+        terraform plan \
+          -var="project_id=kxnwork" \
+          -var="deployer_service_account=terraform-deployer-sa@kxnwork.iam.gserviceaccount.com"
 
-    # -----------------------------------------
-    # 7) Correct Terraform Apply Step
-    # -----------------------------------------
+    # 7) Terraform Apply
     - name: Terraform Apply
-      if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main'
       run: |
-        terraform apply -auto-approve -var="project_id=kxnwork"
+        terraform apply -auto-approve \
+          -var="project_id=kxnwork" \
+          -var="deployer_service_account=terraform-deployer-sa@kxnwork.iam.gserviceaccount.com"
+
